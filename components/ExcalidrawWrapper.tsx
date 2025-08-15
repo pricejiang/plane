@@ -12,11 +12,8 @@ import {
   SceneState 
 } from "@/types";
 
-// Use our own types
-import type { 
-  ExcalidrawElement,
-  AppState
-} from "@/types";
+import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
+import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
 const Excalidraw = dynamic(
   async () => (await import("@excalidraw/excalidraw")).Excalidraw,
@@ -53,7 +50,7 @@ export default function ExcalidrawWrapper() {
   });
   
   // Ref to access Excalidraw API
-  const excalidrawRef = useRef<any>(null);
+  const excalidrawRef = useRef<ExcalidrawImperativeAPI | null>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   
   // Throttled update function
@@ -81,7 +78,7 @@ export default function ExcalidrawWrapper() {
   }, []);
 
   // Get scene elements
-  const getSceneElements = useCallback((): any[] => {
+  const getSceneElements = useCallback((): ExcalidrawElement[] => {
     if (!excalidrawRef.current) {
       console.warn("Excalidraw API not available yet");
       return [];
@@ -122,7 +119,7 @@ export default function ExcalidrawWrapper() {
       });
       
       setSceneState({
-        elements: elements as any[],
+        elements: elements as ExcalidrawElement[],
         appState,
         viewport,
         lastUpdate: Date.now(),
@@ -221,7 +218,7 @@ export default function ExcalidrawWrapper() {
       style={{ height: "100vh", width: "100%", position: "relative" }}
     >
       <Excalidraw
-        excalidrawAPI={(api: any) => {
+        excalidrawAPI={(api: ExcalidrawImperativeAPI) => {
           excalidrawRef.current = api;
           if (api) {
             console.log("Excalidraw API ref set");
