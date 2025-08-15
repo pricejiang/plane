@@ -29,6 +29,38 @@ export interface AppState {
   };
   scrollX: number;
   scrollY: number;
+  selectedElementIds?: { [id: string]: boolean };
+}
+
+// Excalidraw API types
+export interface ExcalidrawAPI {
+  getSceneElements: () => ExcalidrawElement[];
+  getAppState: () => AppState;
+  updateScene: (sceneData: { elements?: ExcalidrawElement[]; appState?: Partial<AppState> }) => void;
+  getSceneElementsIncludingDeleted: () => ExcalidrawElement[];
+  history: {
+    clear: () => void;
+  };
+  scrollToContent: () => void;
+  refresh: () => void;
+}
+
+// Viewport calculation types
+export interface ViewportBounds {
+  minX: number;
+  minY: number;
+  maxX: number;
+  maxY: number;
+  width: number;
+  height: number;
+}
+
+// Scene state management  
+export interface SceneState {
+  elements: any[];
+  appState: AppState;
+  viewport: ViewportBounds;
+  lastUpdate: number;
 }
 
 // Semantic analysis types
