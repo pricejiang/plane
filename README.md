@@ -1,5 +1,8 @@
 # 🛩️ Plane - Intelligent Diagram Analysis Platform
 
+[![CI Pipeline](https://github.com/pricejiang/plane/actions/workflows/ci.yml/badge.svg)](https://github.com/pricejiang/plane/actions/workflows/ci.yml)
+[![CD Pipeline](https://github.com/pricejiang/plane/actions/workflows/deploy.yml/badge.svg)](https://github.com/pricejiang/plane/actions/workflows/deploy.yml)
+
 **Plane** is an advanced diagram analysis platform built on top of Excalidraw, featuring intelligent semantic extraction, widget detection, and AI-powered component recognition. Transform hand-drawn diagrams into structured, semantic data with advanced token optimization.
 
 ## 🚀 Features
