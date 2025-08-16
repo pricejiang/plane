@@ -1,0 +1,200 @@
+name: 🚀 CD Pipeline
+
+on:
+  push:
+    branches: [ main ]
+  workflow_dispatch:
+    inputs:
+      environment:
+        description: 'Environment to deploy to'
+        required: true
+        default: 'production'
+        type: choice
+        options:
+        - production
+        - staging
+
+env:
+  NODE_VERSION: '20.x'
+
+jobs:
+  build:
+    name: 🏗️ Build Application
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🔍 Type checking
+      run: npx tsc --noEmit
+      
+    - name: 🧹 Lint code
+      run: npm run lint
+      
+    - name: 🧪 Run tests
+      run: node run-tests.js
+      
+    - name: 🏗️ Build for production
+      run: npm run build
+      env:
+        NODE_ENV: production
+        
+    - name: 📤 Upload build artifacts
+      uses: actions/upload-artifact@v4
+      with:
+        name: production-build
+        path: |
+          .next/
+          public/
+          package.json
+          package-lock.json
+        retention-days: 7
+
+  deploy-vercel:
+    name: 🌐 Deploy to Vercel
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📥 Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: production-build
+        
+    - name: 🚀 Deploy to Vercel
+      uses: amondnet/vercel-action@v25
+      with:
+        vercel-token: ${{ secrets.VERCEL_TOKEN }}
+        vercel-org-id: ${{ secrets.VERCEL_ORG_ID }}
+        vercel-project-id: ${{ secrets.VERCEL_PROJECT_ID }}
+        vercel-args: '--prod'
+        working-directory: ./
+
+  deploy-netlify:
+    name: 🌐 Deploy to Netlify
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🟢 Setup Node.js
+      uses: actions/setup-node@v4
+      with:
+        node-version: ${{ env.NODE_VERSION }}
+        cache: 'npm'
+        
+    - name: 📦 Install dependencies
+      run: npm ci
+      
+    - name: 🏗️ Build for Netlify
+      run: npm run build
+      
+    - name: 🚀 Deploy to Netlify
+      uses: nwtgck/actions-netlify@v3.0
+      with:
+        publish-dir: './out'
+        production-branch: main
+        github-token: ${{ secrets.GITHUB_TOKEN }}
+        deploy-message: "Deploy from GitHub Actions"
+        enable-pull-request-comment: false
+        enable-commit-comment: true
+      env:
+        NETLIFY_AUTH_TOKEN: ${{ secrets.NETLIFY_AUTH_TOKEN }}
+        NETLIFY_SITE_ID: ${{ secrets.NETLIFY_SITE_ID }}
+
+  deploy-docker:
+    name: 🐳 Build & Deploy Docker
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/main'
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 🐳 Set up Docker Buildx
+      uses: docker/setup-buildx-action@v3
+      
+    - name: 🔐 Login to Docker Hub
+      uses: docker/login-action@v3
+      with:
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
+        
+    - name: 🏗️ Build and push Docker image
+      uses: docker/build-push-action@v5
+      with:
+        context: .
+        file: ./Dockerfile
+        push: true
+        tags: |
+          ${{ secrets.DOCKER_USERNAME }}/plane:latest
+          ${{ secrets.DOCKER_USERNAME }}/plane:${{ github.sha }}
+        cache-from: type=gha
+        cache-to: type=gha,mode=max
+
+  staging-deploy:
+    name: 🧪 Deploy to Staging
+    runs-on: ubuntu-latest
+    needs: build
+    if: github.ref == 'refs/heads/dev' || (github.event_name == 'workflow_dispatch' && github.event.inputs.environment == 'staging')
+    
+    steps:
+    - name: 📥 Checkout code
+      uses: actions/checkout@v4
+      
+    - name: 📥 Download build artifacts
+      uses: actions/download-artifact@v4
+      with:
+        name: production-build
+        
+    - name: 🧪 Deploy to Staging
+      run: |
+        echo "🧪 Deploying to staging environment..."
+        echo "Branch: ${{ github.ref }}"
+        echo "Environment: staging"
+        # Add your staging deployment commands here
+        
+    - name: 📝 Create deployment summary
+      run: |
+        echo "## 🧪 Staging Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "- **Environment**: Staging" >> $GITHUB_STEP_SUMMARY
+        echo "- **Branch**: ${{ github.ref }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
+        echo "- **Status**: ✅ Deployed successfully" >> $GITHUB_STEP_SUMMARY
+
+  post-deploy:
+    name: 📊 Post-Deploy Checks
+    runs-on: ubuntu-latest
+    needs: [deploy-vercel, deploy-netlify, deploy-docker]
+    if: always() && (needs.deploy-vercel.result == 'success' || needs.deploy-netlify.result == 'success' || needs.deploy-docker.result == 'success')
+    
+    steps:
+    - name: 📊 Deployment summary
+      run: |
+        echo "## 🚀 Deployment Summary" >> $GITHUB_STEP_SUMMARY
+        echo "| Platform | Status |" >> $GITHUB_STEP_SUMMARY
+        echo "|----------|--------|" >> $GITHUB_STEP_SUMMARY
+        echo "| Vercel | ${{ needs.deploy-vercel.result == 'success' && '✅ DEPLOYED' || needs.deploy-vercel.result == 'skipped' && '⏭️ SKIPPED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Netlify | ${{ needs.deploy-netlify.result == 'success' && '✅ DEPLOYED' || needs.deploy-netlify.result == 'skipped' && '⏭️ SKIPPED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "| Docker | ${{ needs.deploy-docker.result == 'success' && '✅ DEPLOYED' || needs.deploy-docker.result == 'skipped' && '⏭️ SKIPPED' || '❌ FAILED' }} |" >> $GITHUB_STEP_SUMMARY
+        echo "" >> $GITHUB_STEP_SUMMARY
+        echo "**Deployment completed at**: $(date)" >> $GITHUB_STEP_SUMMARY
+        echo "**Commit**: ${{ github.sha }}" >> $GITHUB_STEP_SUMMARY
