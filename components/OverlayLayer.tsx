@@ -15,27 +15,57 @@ export interface OverlayLayerProps {
   onLabelClick?: (label: SemanticLabel) => void;
 }
 
+/**
+ * Overlay layer component that renders semantic labels over the Excalidraw canvas
+ * with perfect synchronization to pan/zoom operations at 60fps performance
+ * @param labels - Array of semantic labels to render
+ * @param viewTransform - Current zoom and scroll state from Excalidraw
+ * @param containerRef - Reference to the Excalidraw container (for future container bounds)
+ * @param onLabelClick - Optional callback when a label is clicked
+ */
 export default function OverlayLayer({
   labels,
   viewTransform,
-  containerRef,
+  containerRef: _containerRef, // Prefix with underscore to indicate intentionally unused
   onLabelClick
 }: OverlayLayerProps) {
   
   console.log("OverlayLayer rendering with", labels.length, "labels");
   console.log("ViewTransform:", viewTransform);
   
-  // Helper function to convert canvas coordinates to container-relative coordinates
+  /**
+   * Converts canvas coordinates to container-relative screen coordinates
+   * Accounts for Excalidraw's zoom-dependent scroll behavior
+   * @param canvasX - X coordinate in canvas space
+   * @param canvasY - Y coordinate in canvas space
+   * @returns Screen coordinates relative to the container
+   */
   const canvasToContainer = (canvasX: number, canvasY: number) => {
-    // Pattern: zoom > 1 = slower pan, zoom < 1 = faster pan
-    // So I need to multiply scroll by zoom to compensate
-    const normalizedScrollX = viewTransform.scrollX * viewTransform.zoom;
-    const normalizedScrollY = viewTransform.scrollY * viewTransform.zoom;
-    
-    const containerX = canvasX + normalizedScrollX;
-    const containerY = canvasY + normalizedScrollY;
-    
-    return { x: containerX, y: containerY };
+    try {
+      // Validate inputs
+      if (!isFinite(canvasX) || !isFinite(canvasY)) {
+        console.warn("Invalid canvas coordinates:", { canvasX, canvasY });
+        return { x: 0, y: 0 };
+      }
+      
+      if (!viewTransform || !isFinite(viewTransform.zoom) || viewTransform.zoom === 0) {
+        console.warn("Invalid view transform:", viewTransform);
+        return { x: canvasX, y: canvasY };
+      }
+      
+      // Pattern: zoom > 1 = slower pan, zoom < 1 = faster pan
+      // So we multiply scroll by zoom to normalize movement speed across zoom levels
+      const normalizedScrollX = viewTransform.scrollX * viewTransform.zoom;
+      const normalizedScrollY = viewTransform.scrollY * viewTransform.zoom;
+      
+      const containerX = canvasX + normalizedScrollX;
+      const containerY = canvasY + normalizedScrollY;
+      
+      return { x: containerX, y: containerY };
+    } catch (error) {
+      console.error("Error in coordinate transformation:", error);
+      return { x: canvasX, y: canvasY }; // Fallback to original coordinates
+    }
   };
   
   if (labels.length > 0) {

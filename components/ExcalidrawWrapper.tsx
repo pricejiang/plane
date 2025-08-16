@@ -33,7 +33,7 @@ export default function ExcalidrawWrapper() {
   const [sceneState, setSceneState] = useState<SceneState>({
     elements: [],
     appState: {
-      zoom: { value: 1 as any }, // Will be replaced by actual Excalidraw state
+      zoom: { value: 1 }, // Will be replaced by actual Excalidraw state
       scrollX: 0,
       scrollY: 0,
     } as AppState,

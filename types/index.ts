@@ -36,7 +36,7 @@ export interface ViewportBounds {
 
 // Scene state management  
 export interface SceneState {
-  elements: any[];
+  elements: ExcalidrawElement[];
   appState: AppState;
   viewport: ViewportBounds;
   lastUpdate: number;
