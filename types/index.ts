@@ -21,29 +21,8 @@ export interface ExcalidrawElement {
   verticalAlign?: string;
 }
 
-export interface AppState {
-  viewBackgroundColor: string;
-  gridSize: number;
-  zoom: {
-    value: number;
-  };
-  scrollX: number;
-  scrollY: number;
-  selectedElementIds?: { [id: string]: boolean };
-}
-
-// Excalidraw API types
-export interface ExcalidrawAPI {
-  getSceneElements: () => ExcalidrawElement[];
-  getAppState: () => AppState;
-  updateScene: (sceneData: { elements?: ExcalidrawElement[]; appState?: Partial<AppState> }) => void;
-  getSceneElementsIncludingDeleted: () => ExcalidrawElement[];
-  history: {
-    clear: () => void;
-  };
-  scrollToContent: () => void;
-  refresh: () => void;
-}
+// Import AppState from Excalidraw
+import type { AppState } from "@excalidraw/excalidraw/types";
 
 // Viewport calculation types
 export interface ViewportBounds {
@@ -94,15 +73,12 @@ export interface LLMResponse {
   error?: string;
 }
 
-// Component props
-export interface OverlayProps {
-  labels: SemanticLabel[];
-  viewTransform: {
-    zoom: number;
-    offsetX: number;
-    offsetY: number;
-  };
-  onLabelClick?: (label: SemanticLabel) => void;
+// Component props (OverlayProps replaced by OverlayLayerProps in OverlayLayer.tsx)
+
+export interface ViewTransform {
+  zoom: number;
+  scrollX: number;
+  scrollY: number;
 }
 
 export interface ControlPanelProps {
