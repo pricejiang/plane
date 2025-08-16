@@ -1,5 +1,5 @@
 // Simple widget detection test (no WebWorker)
-// Run with: node test-widget-simple.js
+// Run with: node tests/unit/test-widget-simple.js
 
 console.log('🧪 Testing Widget Detection Logic\n');
 

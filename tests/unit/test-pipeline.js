@@ -1,5 +1,5 @@
 // Quick test of the new 5-stage extraction pipeline
-// Run with: node test-pipeline.js
+// Run with: node tests/unit/test-pipeline.js
 
 // Simulate the pipeline processing without WebWorker for testing
 const testElements = [

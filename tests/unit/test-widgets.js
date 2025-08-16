@@ -1,5 +1,5 @@
 // Quick demonstration of Widget Placeholder System
-// Run with: node test-widgets.js
+// Run with: node tests/unit/test-widgets.js
 
 console.log('🎨 Widget Placeholder System Demo');
 console.log('==================================\n');
