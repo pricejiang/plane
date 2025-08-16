@@ -6,7 +6,8 @@ export default function ControlPanel({
   onScan, 
   isScanning, 
   results, 
-  onClear 
+  onClear,
+  tokenAnalysis 
 }: ControlPanelProps) {
   return (
     <div style={{
@@ -71,6 +72,28 @@ export default function ControlPanel({
               ))}
             </div>
             
+            {tokenAnalysis && (
+              <div className="mt-3 pt-3 border-t">
+                <div className="text-xs font-medium text-gray-700 mb-1">
+                  Token Optimization:
+                </div>
+                <div className="text-xs text-gray-600 bg-green-50 p-2 rounded border-green-200 border">
+                  <div className="flex justify-between">
+                    <span>Original:</span>
+                    <span className="font-mono">{tokenAnalysis.originalTokens} tokens</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span>Optimized:</span>
+                    <span className="font-mono">{tokenAnalysis.optimizedTokens} tokens</span>
+                  </div>
+                  <div className="flex justify-between font-medium text-green-700 mt-1 pt-1 border-t border-green-200">
+                    <span>Reduction:</span>
+                    <span className="font-mono">{tokenAnalysis.reduction.toFixed(1)}%</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
             {results.summary && (
               <div className="mt-3 pt-3 border-t">
                 <div className="text-xs font-medium text-gray-700 mb-1">

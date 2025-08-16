@@ -86,4 +86,12 @@ export interface ControlPanelProps {
   isScanning: boolean;
   results?: AnalysisResult;
   onClear?: () => void;
+  tokenAnalysis?: {
+    originalTokens: number;
+    optimizedTokens: number;
+    reduction: number;
+  };
 }
+
+// Re-export extraction types for convenience
+export * from './extraction';

@@ -12,6 +12,8 @@ import {
   ViewportBounds,
   SceneState 
 } from "@/types";
+import { extractForOverlay, getExtractionWorkerManager } from "@/lib/extractionWorkerManager";
+import { analyzeTokenUsage } from "@/lib/tokenAnalyzer";
 
 import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
 import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
@@ -28,6 +30,11 @@ export default function ExcalidrawWrapper() {
   const [labels, setLabels] = useState<SemanticLabel[]>([]);
   const [isScanning, setIsScanning] = useState(false);
   const [results, setResults] = useState<AnalysisResult | undefined>();
+  const [tokenAnalysis, setTokenAnalysis] = useState<{
+    originalTokens: number;
+    optimizedTokens: number;
+    reduction: number;
+  } | undefined>();
   
   // Scene state - use proper default values from Excalidraw
   const [sceneState, setSceneState] = useState<SceneState>({
@@ -179,68 +186,90 @@ export default function ExcalidrawWrapper() {
     console.log("handleScan called, current labels:", labels.length);
     setIsScanning(true);
     
-    // Get current scene data for potential integration with GPT-4o
-    const currentElements = getSceneElements();
-    
-    console.log("Scanning canvas with:", {
-      elementsCount: currentElements.length,
-      viewport: sceneState.viewport,
-      elements: currentElements,
-    });
-    
-    // Mock scan for now - this will be replaced with actual GPT-4o integration
-    setTimeout(() => {
-      const mockResults: AnalysisResult = {
-        labels: [
-          {
-            id: "1",
-            elementId: "mock-1",
-            label: "Performance Test Marker",
-            confidence: 0.95,
-            category: "diagram",
-            x: 0,
-            y: 0,
-            width: 100,
-            height: 100,
-          },
-          {
-            id: "2", 
-            elementId: "mock-2",
-            label: "60fps Test",
-            confidence: 0.90,
-            category: "widget",
-            x: 200,
-            y: 200,
-            width: 120,
-            height: 60,
-          },
-          {
-            id: "3", 
-            elementId: "mock-3",
-            label: "Smooth Movement",
-            confidence: 0.88,
-            category: "widget",
-            x: -150,
-            y: -100,
-            width: 140,
-            height: 50,
-          }
-        ],
-        summary: `Canvas contains ${currentElements.length} elements including UI mockup with interactive elements`,
+    try {
+      // Get current scene data
+      const currentElements = getSceneElements();
+      
+      console.log("Scanning canvas with local extraction pipeline:", {
+        elementsCount: currentElements.length,
+        viewport: sceneState.viewport,
+      });
+      
+      if (currentElements.length === 0) {
+        console.log("No elements to analyze");
+        setLabels([]);
+        setResults({
+          labels: [],
+          summary: "No elements found on canvas",
+          timestamp: Date.now(),
+        });
+        setIsScanning(false);
+        return;
+      }
+      
+      // Use local extraction pipeline (convert readonly array to mutable)
+      const extractionResult = await extractForOverlay([...currentElements], sceneState.viewport);
+      
+      // Get full extraction result for token analysis
+      const manager = getExtractionWorkerManager();
+      const fullExtractionResult = await manager.extractThorough([...currentElements], sceneState.viewport);
+      
+      // Calculate token analysis
+      const tokenAnalysisResult = analyzeTokenUsage([...currentElements], fullExtractionResult);
+      
+      const analysisResult: AnalysisResult = {
+        labels: extractionResult.labels,
+        summary: `Local extraction identified ${extractionResult.labels.length} semantic components with ${(extractionResult.confidence * 100).toFixed(1)}% average confidence. Token reduction: ${tokenAnalysisResult.reduction.percentage.toFixed(1)}%`,
         timestamp: Date.now(),
       };
       
-      console.log("Setting labels:", mockResults.labels);
-      setLabels(mockResults.labels);
-      setResults(mockResults);
+      console.log("Local extraction completed:", {
+        componentsFound: extractionResult.labels.length,
+        averageConfidence: extractionResult.confidence,
+        tokenReduction: tokenAnalysisResult.reduction.percentage,
+        labels: extractionResult.labels
+      });
+      
+      setLabels(analysisResult.labels);
+      setResults(analysisResult);
+      setTokenAnalysis({
+        originalTokens: tokenAnalysisResult.rawElements.estimatedTokens,
+        optimizedTokens: tokenAnalysisResult.semanticComponents.estimatedTokens,
+        reduction: tokenAnalysisResult.reduction.percentage
+      });
       setIsScanning(false);
-      console.log("Scan completed, labels set:", mockResults.labels.length);
-    }, 2000);
+      
+    } catch (error) {
+      console.error("Extraction failed:", error);
+      
+      // Fallback to basic element detection
+      const currentElements = getSceneElements();
+      const fallbackLabels: SemanticLabel[] = currentElements.map((element, index) => ({
+        id: `fallback-${index}`,
+        elementId: element.id,
+        label: `${element.type} (fallback)`,
+        confidence: 0.5,
+        category: 'unknown' as const,
+        x: element.x,
+        y: element.y,
+        width: element.width,
+        height: element.height,
+      }));
+      
+      setLabels(fallbackLabels);
+      setResults({
+        labels: fallbackLabels,
+        summary: `Fallback mode: detected ${fallbackLabels.length} basic elements`,
+        timestamp: Date.now(),
+      });
+      setIsScanning(false);
+    }
   };
 
   const handleClear = () => {
     setLabels([]);
     setResults(undefined);
+    setTokenAnalysis(undefined);
   };
 
   const handleLabelClick = (label: SemanticLabel) => {
@@ -285,6 +314,7 @@ export default function ExcalidrawWrapper() {
         isScanning={isScanning}
         results={results}
         onClear={handleClear}
+        tokenAnalysis={tokenAnalysis}
       />
     </div>
   );
