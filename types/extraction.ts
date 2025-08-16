@@ -59,6 +59,9 @@ export enum ComponentRole {
   CONNECTOR = 'connector',
   START_END = 'start_end',
   
+  // Special
+  WIDGET = 'widget',
+  
   // Unknown/Generic
   CONTAINER = 'container',
   COMPONENT = 'component',
@@ -143,6 +146,14 @@ export interface ComponentMetadata {
     processingTime: number;
     version: string;
   };
+  
+  // Widget-specific metadata (optional)
+  widgetMetadata?: {
+    widgetType: string;
+    confidence: number;
+    detectionMethod: 'metadata' | 'pattern' | 'none';
+    config?: any;
+  };
 }
 
 export interface ExtractionResult {
@@ -200,6 +211,7 @@ export interface ExtractionOptions {
   minConfidence: number; // Filter components below this confidence
   enableRelationshipAnalysis: boolean;
   enableTokenOptimization: boolean;
+  enableWidgetDetection?: boolean; // New: detect widget placeholders
   maxComponents: number; // Limit for performance
   analysisDepth: 'fast' | 'standard' | 'thorough';
 }

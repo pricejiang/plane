@@ -24,9 +24,9 @@ export class ExtractionWorkerManager {
 
   private initWorker() {
     try {
-      // Create worker from the extraction worker script
+      // Create worker from the comprehensive extraction pipeline
       this.worker = new Worker(
-        new URL('../workers/extraction.worker.ts', import.meta.url)
+        new URL('../workers/extractionPipeline.worker.ts', import.meta.url)
       );
       
       this.worker.addEventListener('message', this.handleWorkerMessage.bind(this));
@@ -93,6 +93,7 @@ export class ExtractionWorkerManager {
       minConfidence: 0.3,
       enableRelationshipAnalysis: true,
       enableTokenOptimization: true,
+      enableWidgetDetection: true,
       maxComponents: 100,
       analysisDepth: 'standard'
     };
@@ -242,17 +243,49 @@ export async function extractForOverlay(elements: any[], viewport: any): Promise
   const result = await manager.extractFast(elements, viewport);
   
   // Convert to overlay labels format
-  const labels = result.components.map(comp => ({
-    id: comp.id,
-    elementId: comp.elementIds[0], // Use first element ID for compatibility
-    label: `${comp.role.replace('_', ' ')} (${(comp.confidence * 100).toFixed(0)}%)`,
-    confidence: comp.confidence,
-    category: roleToCategory(comp.role),
-    x: comp.boundingBox.x,
-    y: comp.boundingBox.y,
-    width: comp.boundingBox.width,
-    height: comp.boundingBox.height
-  }));
+  const labels = result.components.map(comp => {
+    // Debug logging for widget components
+    if (comp.role === 'widget' || (comp.metadata.widgetMetadata)) {
+      console.log(`[Overlay Debug] Component ${comp.id}:`);
+      console.log(`  Role: "${comp.role}"`);
+      console.log(`  Has widget metadata: ${!!comp.metadata.widgetMetadata}`);
+      if (comp.metadata.widgetMetadata) {
+        console.log(`  Widget type: ${comp.metadata.widgetMetadata.widgetType}`);
+      }
+    }
+    
+    // Create enhanced label for widgets
+    let label = comp.role.replace('_', ' ');
+    
+    // If it's a widget, try to show the specific widget type
+    if (comp.role === 'widget' && comp.metadata.widgetMetadata) {
+      const widgetType = comp.metadata.widgetMetadata.widgetType;
+      label = `${widgetType} widget`;
+    }
+    
+    const category = roleToCategory(comp.role);
+    
+    // Debug logging for category assignment
+    if (comp.role === 'widget' || (comp.metadata.widgetMetadata)) {
+      console.log(`  Label: "${label}"`);
+      console.log(`  Category: "${category}"`);
+      console.log('---');
+    }
+    
+    return {
+      id: comp.id,
+      elementId: comp.elementIds[0], // Use first element ID for compatibility
+      label: `${label} (${(comp.confidence * 100).toFixed(0)}%)`,
+      confidence: comp.confidence,
+      category: category,
+      x: comp.boundingBox.x,
+      y: comp.boundingBox.y,
+      width: comp.boundingBox.width,
+      height: comp.boundingBox.height,
+      // Include widget metadata for enhanced rendering
+      widgetMetadata: comp.metadata.widgetMetadata
+    };
+  });
 
   return {
     labels,
@@ -261,6 +294,10 @@ export async function extractForOverlay(elements: any[], viewport: any): Promise
 }
 
 function roleToCategory(role: string): 'widget' | 'text' | 'shape' | 'diagram' | 'unknown' {
+  // Check for explicit widget role first
+  if (role === 'widget') {
+    return 'widget';
+  }
   if (role.includes('button') || role.includes('input') || role.includes('dropdown')) {
     return 'widget';
   }

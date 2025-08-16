@@ -112,6 +112,11 @@ export default function OverlayLayer({
         const scaledWidth = label.width * viewTransform.zoom;
         const scaledHeight = label.height * viewTransform.zoom;
         
+        // Determine if this is a widget and style accordingly
+        const isWidget = label.category === 'widget' || label.label.toLowerCase().includes('widget');
+        const widgetType = getWidgetTypeFromLabel(label.label);
+        
+        const style = getWidgetStyle(isWidget, widgetType, viewTransform.zoom);
         
         return (
           <div
@@ -122,23 +127,101 @@ export default function OverlayLayer({
               top: containerPos.y,
               width: scaledWidth,
               height: scaledHeight,
-              backgroundColor: "blue",
-              color: "white",
-              padding: `${10 * viewTransform.zoom}px`,
-              border: `${3 * viewTransform.zoom}px solid white`,
+              ...style,
+              padding: `${8 * viewTransform.zoom}px`,
               fontWeight: "bold",
               textAlign: "center",
-              fontSize: `${12 * viewTransform.zoom}px`,
-              pointerEvents: "auto"
+              fontSize: `${11 * viewTransform.zoom}px`,
+              pointerEvents: "auto",
+              borderRadius: `${4 * viewTransform.zoom}px`,
+              boxShadow: `0 ${2 * viewTransform.zoom}px ${8 * viewTransform.zoom}px rgba(0,0,0,0.2)`
             }}
             onClick={() => onLabelClick?.(label)}
           >
-            {label.label}
-            <br />
-            {`(${label.x}, ${label.y})`}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', height: '100%', flexDirection: 'column' }}>
+              {getWidgetIcon(widgetType, viewTransform.zoom)}
+              <div style={{ marginTop: `${4 * viewTransform.zoom}px` }}>
+                {label.label}
+              </div>
+              {viewTransform.zoom > 0.5 && (
+                <div style={{ fontSize: `${9 * viewTransform.zoom}px`, opacity: 0.8, marginTop: `${2 * viewTransform.zoom}px` }}>
+                  {Math.round(label.confidence * 100)}% confidence
+                </div>
+              )}
+            </div>
           </div>
         );
       })}
     </div>
   );
+}
+
+// Helper functions for widget-specific styling
+function getWidgetTypeFromLabel(label: string): string {
+  const lower = label.toLowerCase();
+  if (lower.includes('map')) return 'map';
+  if (lower.includes('video')) return 'video';
+  if (lower.includes('iframe') || lower.includes('embed')) return 'iframe';
+  if (lower.includes('chart') || lower.includes('graph')) return 'chart';
+  if (lower.includes('calendar')) return 'calendar';
+  return 'unknown';
+}
+
+function getWidgetStyle(isWidget: boolean, widgetType: string, zoom: number) {
+  if (!isWidget) {
+    return {
+      backgroundColor: "rgba(59, 130, 246, 0.9)", // Blue
+      color: "white",
+      border: `${2 * zoom}px solid rgba(59, 130, 246, 1)`
+    };
+  }
+
+  const styles = {
+    map: {
+      backgroundColor: "rgba(34, 197, 94, 0.9)", // Green
+      color: "white",
+      border: `${2 * zoom}px solid rgba(34, 197, 94, 1)`
+    },
+    video: {
+      backgroundColor: "rgba(239, 68, 68, 0.9)", // Red
+      color: "white", 
+      border: `${2 * zoom}px solid rgba(239, 68, 68, 1)`
+    },
+    iframe: {
+      backgroundColor: "rgba(168, 85, 247, 0.9)", // Purple
+      color: "white",
+      border: `${2 * zoom}px solid rgba(168, 85, 247, 1)`
+    },
+    chart: {
+      backgroundColor: "rgba(245, 158, 11, 0.9)", // Amber
+      color: "white",
+      border: `${2 * zoom}px solid rgba(245, 158, 11, 1)`
+    },
+    calendar: {
+      backgroundColor: "rgba(6, 182, 212, 0.9)", // Cyan
+      color: "white",
+      border: `${2 * zoom}px solid rgba(6, 182, 212, 1)`
+    }
+  };
+
+  return styles[widgetType as keyof typeof styles] || {
+    backgroundColor: "rgba(156, 163, 175, 0.9)", // Gray
+    color: "white",
+    border: `${2 * zoom}px solid rgba(156, 163, 175, 1)`
+  };
+}
+
+function getWidgetIcon(widgetType: string, zoom: number) {
+  const iconSize = Math.max(12, 16 * zoom);
+  const iconStyle = { fontSize: `${iconSize}px`, lineHeight: 1 };
+
+  const icons = {
+    map: <span style={iconStyle}>🗺️</span>,
+    video: <span style={iconStyle}>🎥</span>,
+    iframe: <span style={iconStyle}>🌐</span>,
+    chart: <span style={iconStyle}>📊</span>,
+    calendar: <span style={iconStyle}>📅</span>
+  };
+
+  return icons[widgetType as keyof typeof icons] || <span style={iconStyle}>📱</span>;
 }
