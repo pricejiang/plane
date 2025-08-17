@@ -12,11 +12,9 @@ import {
   ViewportBounds,
   SceneState 
 } from "@/types";
-import { extractForOverlay, getExtractionWorkerManager } from "@/lib/extractionWorkerManager";
-import { analyzeTokenUsage } from "@/lib/tokenAnalyzer";
+import { getEnhancedManager } from "@/lib/enhancedExtractionManager";
 
 import type { ExcalidrawImperativeAPI, AppState } from "@excalidraw/excalidraw/types";
-import type { ExcalidrawElement } from "@excalidraw/excalidraw/element/types";
 
 const Excalidraw = dynamic(
   async () => (await import("@excalidraw/excalidraw")).Excalidraw,
@@ -112,10 +110,10 @@ export default function ExcalidrawWrapper() {
       const appState = getAppState();
       
       // Update only the transform part immediately for smooth overlay
-      setSceneState(prev => ({
-        ...prev,
+      setSceneState(current => ({
+        ...current,
         appState: {
-          ...prev.appState,
+          ...current.appState,
           zoom: appState.zoom,
           scrollX: appState.scrollX,
           scrollY: appState.scrollY,
@@ -140,7 +138,7 @@ export default function ExcalidrawWrapper() {
       const appState = getAppState();
       const viewport = calculateViewportBounds(appState);
       
-      setSceneState(prev => ({
+      setSceneState(() => ({
         elements: [...elements], // Convert readonly to mutable array
         appState,
         viewport,
@@ -190,7 +188,7 @@ export default function ExcalidrawWrapper() {
       // Get current scene data
       const currentElements = getSceneElements();
       
-      console.log("Scanning canvas with local extraction pipeline:", {
+      console.log("Scanning canvas with enhanced extraction pipeline:", {
         elementsCount: currentElements.length,
         viewport: sceneState.viewport,
       });
@@ -207,40 +205,38 @@ export default function ExcalidrawWrapper() {
         return;
       }
       
-      // Use local extraction pipeline (convert readonly array to mutable)
-      const extractionResult = await extractForOverlay([...currentElements], sceneState.viewport);
+      // Use enhanced extraction pipeline with GPT-4o integration
+      const enhancedManager = getEnhancedManager();
+      const enhancedResult = await enhancedManager.extractSmart([...currentElements], sceneState.viewport);
       
-      // Get full extraction result for token analysis
-      const manager = getExtractionWorkerManager();
-      const fullExtractionResult = await manager.extractThorough([...currentElements], sceneState.viewport);
-      
-      // Calculate token analysis
-      const tokenAnalysisResult = analyzeTokenUsage([...currentElements], fullExtractionResult);
+      // Generate enhanced summary
+      const summary = enhancedManager.generateSummary(enhancedResult);
       
       const analysisResult: AnalysisResult = {
-        labels: extractionResult.labels,
-        summary: `Local extraction identified ${extractionResult.labels.length} semantic components with ${(extractionResult.confidence * 100).toFixed(1)}% average confidence. Token reduction: ${tokenAnalysisResult.reduction.percentage.toFixed(1)}%`,
+        labels: enhancedResult.labels,
+        summary,
         timestamp: Date.now(),
       };
       
-      console.log("Local extraction completed:", {
-        componentsFound: extractionResult.labels.length,
-        averageConfidence: extractionResult.confidence,
-        tokenReduction: tokenAnalysisResult.reduction.percentage,
-        labels: extractionResult.labels
+      console.log("Enhanced extraction completed:", {
+        componentsFound: enhancedResult.labels.length,
+        averageConfidence: enhancedResult.confidence,
+        tokenReduction: enhancedResult.tokenAnalysis.reduction.percentage,
+        gptEnhanced: enhancedResult.gptRelationships.length > 0,
+        labels: enhancedResult.labels
       });
       
       setLabels(analysisResult.labels);
       setResults(analysisResult);
       setTokenAnalysis({
-        originalTokens: tokenAnalysisResult.rawElements.estimatedTokens,
-        optimizedTokens: tokenAnalysisResult.semanticComponents.estimatedTokens,
-        reduction: tokenAnalysisResult.reduction.percentage
+        originalTokens: enhancedResult.tokenAnalysis.rawElements.estimatedTokens,
+        optimizedTokens: enhancedResult.tokenAnalysis.semanticComponents.estimatedTokens,
+        reduction: enhancedResult.tokenAnalysis.reduction.percentage
       });
       setIsScanning(false);
       
     } catch (error) {
-      console.error("Extraction failed:", error);
+      console.error("Enhanced extraction failed:", error);
       
       // Fallback to basic element detection
       const currentElements = getSceneElements();

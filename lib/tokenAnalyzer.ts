@@ -67,44 +67,47 @@ export function calculateRawElementTokens(elements: any[]): { tokens: number; re
 }
 
 /**
- * Calculate estimated token count for semantic components
+ * Calculate estimated token count for semantic components (Phase 3: Optimized)
  */
 export function calculateSemanticComponentTokens(components: SemanticComponent[]): { tokens: number; representation: string } {
   const representations = components.map(component => {
-    const parts = [
-      `Component ${component.id}:`,
-      `- Role: ${component.role}`,
-      `- Confidence: ${(component.confidence * 100).toFixed(1)}%`,
-      `- Bounds: (${component.boundingBox.x}, ${component.boundingBox.y}) ${component.boundingBox.width}x${component.boundingBox.height}`,
-      `- Elements: [${component.elementIds.join(', ')}]`
-    ];
+    // Phase 3: Ultra-compressed representation focusing on semantic value
+    const parts = [`${component.role}`];
     
+    // Only include essential information
     if (component.metadata.visualProperties.textContent) {
-      parts.push(`- Text: "${component.metadata.visualProperties.textContent}"`);
+      parts.push(`"${component.metadata.visualProperties.textContent}"`);
     }
     
-    if (component.metadata.interactionPattern?.isClickable) {
-      parts.push(`- Interactive: clickable`);
-    }
+    // Compress location to minimal representation
+    parts.push(`@(${Math.round(component.boundingBox.x)},${Math.round(component.boundingBox.y)})`);
     
+    // Only include high-confidence relationships
     if (component.relationships.length > 0) {
-      const relationshipSummary = component.relationships
-        .map(rel => `${rel.type}→${rel.targetComponentId}`)
-        .join(', ');
-      parts.push(`- Relations: ${relationshipSummary}`);
+      const highConfRels = component.relationships
+        .filter(rel => rel.confidence > 0.7)
+        .map(rel => `${rel.type.split('_')[0]}→${rel.targetComponentId.slice(-4)}`)
+        .slice(0, 2); // Max 2 relationships
+      if (highConfRels.length > 0) {
+        parts.push(highConfRels.join(','));
+      }
     }
     
+    // Only include the most important semantic hint
     if (component.metadata.semanticHints.length > 0) {
-      parts.push(`- Hints: ${component.metadata.semanticHints.join(', ')}`);
+      const hint = component.metadata.semanticHints[0];
+      if (hint && hint.length < 30) { // Only short, valuable hints
+        parts.push(hint);
+      }
     }
     
-    return parts.join('\n');
+    return parts.join(' ');
   });
   
-  const fullRepresentation = representations.join('\n\n');
+  const fullRepresentation = representations.join('; ');
   
-  // Estimate tokens
-  const estimatedTokens = Math.ceil(fullRepresentation.length / 4);
+  // More accurate token estimation (GPT-4 style)
+  const estimatedTokens = Math.ceil(fullRepresentation.length / 3.5);
   
   return {
     tokens: estimatedTokens,

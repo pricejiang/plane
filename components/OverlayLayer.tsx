@@ -29,10 +29,6 @@ export default function OverlayLayer({
   containerRef: _containerRef, // Prefix with underscore to indicate intentionally unused
   onLabelClick
 }: OverlayLayerProps) {
-  
-  console.log("OverlayLayer rendering with", labels.length, "labels");
-  console.log("ViewTransform:", viewTransform);
-  
   /**
    * Converts canvas coordinates to container-relative screen coordinates
    * Accounts for Excalidraw's zoom-dependent scroll behavior
@@ -67,12 +63,6 @@ export default function OverlayLayer({
       return { x: canvasX, y: canvasY }; // Fallback to original coordinates
     }
   };
-  
-  if (labels.length > 0) {
-    console.log("First label canvas coords:", { x: labels[0].x, y: labels[0].y });
-    const debugPos = canvasToContainer(labels[0].x, labels[0].y);
-    console.log("First label screen coords:", debugPos);
-  }
   
   return (
     <div
